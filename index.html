@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>研究ログ</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172235;
+      --muted: #667085;
+      --line: #e4e8f0;
+      --paper: #ffffff;
+      --bg: #f5f7fb;
+      --accent: #356ae6;
+      --accent-dark: #2454c7;
+      --danger: #b42318;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background: linear-gradient(145deg, #edf3ff, var(--bg) 42%);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+    }
+
+    .container { width: min(920px, calc(100% - 32px)); margin: 0 auto; padding: 48px 0 64px; }
+    header { margin-bottom: 28px; }
+    .eyebrow { margin: 0 0 8px; color: var(--accent); font-size: .82rem; font-weight: 700; letter-spacing: .12em; }
+    h1 { margin: 0; font-size: clamp(2rem, 5vw, 3.2rem); letter-spacing: -.04em; }
+    .lead { margin: 12px 0 0; color: var(--muted); }
+    .panel { background: rgba(255,255,255,.9); border: 1px solid rgba(228,232,240,.9); border-radius: 20px; box-shadow: 0 14px 36px rgba(34, 57, 100, .08); }
+    form { display: grid; grid-template-columns: 150px 1fr 150px 1fr 110px auto; gap: 14px; align-items: end; padding: 22px; }
+    label { display: grid; gap: 7px; color: #344054; font-size: .85rem; font-weight: 700; }
+    input, textarea, button { font: inherit; }
+    input, textarea { width: 100%; border: 1px solid #cfd6e4; border-radius: 10px; background: #fff; color: var(--ink); padding: 11px 12px; outline: none; }
+    input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(53,106,230,.14); }
+    textarea { min-height: 42px; resize: vertical; }
+    button { border: 0; border-radius: 10px; cursor: pointer; font-weight: 700; padding: 12px 18px; transition: .2s ease; }
+    .primary { color: #fff; background: var(--accent); }
+    .primary:hover { background: var(--accent-dark); transform: translateY(-1px); }
+    .message { min-height: 20px; margin: 10px 22px 0; color: var(--danger); font-size: .88rem; }
+    .progress { margin-top: 28px; padding: 22px; }
+    .progress-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+    .progress-heading h2 { margin: 0; font-size: 1.25rem; }
+    .progress-period { color: var(--muted); font-size: .88rem; }
+    .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 22px; }
+    .summary-card { padding: 16px; border-radius: 14px; background: #f5f8ff; }
+    .summary-label { display: block; color: var(--muted); font-size: .82rem; }
+    .summary-value { display: block; margin-top: 5px; color: var(--accent-dark); font-size: 1.45rem; font-weight: 800; }
+    .bar-meta { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 8px; color: #344054; font-size: .9rem; font-weight: 700; }
+    .progress-track { height: 12px; overflow: hidden; border-radius: 99px; background: #e4eaf7; }
+    .progress-bar { height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, #356ae6, #6d8ff1); transition: width .35s ease; }
+    .progress-note { margin: 10px 0 0; color: var(--muted); font-size: .82rem; }
+    .tag-progress { display: grid; gap: 14px; margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--line); }
+    .tag-progress-title { margin: 0; font-size: 1rem; }
+    .tag-progress-row { display: grid; grid-template-columns: 130px 1fr 48px; gap: 12px; align-items: center; }
+    .tag-progress-name { min-width: 0; overflow: hidden; color: #344054; font-size: .88rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+    .tag-progress-row .progress-track { height: 9px; }
+    .tag-progress-value { color: var(--accent-dark); font-size: .85rem; font-weight: 800; text-align: right; }
+    .records { margin-top: 28px; padding: 22px; }
+    .records-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+    h2 { margin: 0; font-size: 1.25rem; }
+    .count { color: var(--muted); font-size: .88rem; }
+    .empty { margin: 0; padding: 36px 16px; border: 1px dashed #cfd6e4; border-radius: 12px; color: var(--muted); text-align: center; }
+    .record { display: grid; grid-template-columns: 120px 1fr auto; gap: 16px; align-items: start; padding: 17px 0; border-top: 1px solid var(--line); }
+    .record-date { color: var(--accent-dark); font-weight: 700; }
+    .record-note { min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .record-tags { grid-column: 2; display: flex; flex-wrap: wrap; gap: 6px; margin-top: -8px; color: var(--muted); font-size: .82rem; }
+    .tag { padding: 3px 8px; border-radius: 99px; background: #edf2ff; color: var(--accent-dark); }
+    .record-progress { grid-column: 2; color: var(--accent-dark); font-size: .82rem; font-weight: 700; }
+    .record-time { white-space: nowrap; color: #344054; font-weight: 700; }
+    .delete { margin-left: 8px; padding: 3px 6px; color: var(--muted); background: transparent; font-size: .8rem; font-weight: 600; }
+    .delete:hover { color: var(--danger); background: #fff0ee; }
+    @media (max-width: 700px) {
+      .container { width: min(100% - 22px, 600px); padding-top: 28px; }
+      form { grid-template-columns: 1fr 1fr; }
+      form label:nth-child(2) { grid-column: 1 / -1; }
+      form button { width: 100%; }
+      .summary { grid-template-columns: 1fr; }
+      .tag-progress-row { grid-template-columns: 90px 1fr 42px; gap: 8px; }
+      .record { grid-template-columns: 1fr auto; gap: 8px; }
+      .record-date { grid-column: 1; }
+      .record-time { grid-column: 2; grid-row: 1; }
+      .record-note { grid-column: 1 / -1; }
+      .record-tags, .record-progress { grid-column: 1 / -1; }
+      .delete { grid-column: 1 / -1; justify-self: start; margin: 0; padding-left: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <header>
+      <p class="eyebrow">RESEARCH LOG</p>
+      <h1>研究ログ</h1>
+      <p class="lead">研究内容と作業時間を、すぐに記録できます。</p>
+    </header>
+
+    <section class="panel">
+      <form id="recordForm" novalidate>
+        <label>日付
+          <input id="date" type="date" required>
+        </label>
+        <label>研究内容（メモ）
+          <textarea id="note" rows="1" placeholder="例：実験結果を整理した" required></textarea>
+        </label>
+        <label>タグ
+          <input id="tags" type="text" placeholder="例：実験, 分析">
+        </label>
+        <label>作業時間（分）
+          <input id="minutes" type="number" min="1" step="1" inputmode="numeric" placeholder="60" required>
+        </label>
+        <label>進捗（%）
+          <input id="progress" type="number" min="0" max="100" step="1" inputmode="numeric" placeholder="40">
+        </label>
+        <button class="primary" type="submit">追加</button>
+      </form>
+      <p id="message" class="message" role="alert" aria-live="polite"></p>
+    </section>
+
+    <section class="panel progress" aria-labelledby="progressTitle">
+      <div class="progress-heading">
+        <h2 id="progressTitle">今週の進捗</h2>
+        <span id="progressPeriod" class="progress-period"></span>
+      </div>
+      <div class="summary">
+        <div class="summary-card"><span class="summary-label">累計作業時間</span><strong id="totalMinutes" class="summary-value">0分</strong></div>
+        <div class="summary-card"><span class="summary-label">記録した日数</span><strong id="activeDays" class="summary-value">0日</strong></div>
+        <div class="summary-card"><span class="summary-label">記録件数</span><strong id="totalRecords" class="summary-value">0件</strong></div>
+      </div>
+      <div class="bar-meta"><span>今週の作業時間</span><span id="weeklyMinutes">0 / 300分</span></div>
+      <div class="progress-track" role="progressbar" aria-label="今週の作業時間" aria-valuemin="0" aria-valuemax="300" aria-valuenow="0"><div id="progressBar" class="progress-bar"></div></div>
+      <p id="progressNote" class="progress-note">まずは今週の研究ログを追加しましょう。</p>
+      <div id="tagProgress" class="tag-progress" hidden>
+        <h3 class="tag-progress-title">タグ別の進捗</h3>
+      </div>
+    </section>
+
+    <section class="panel records" aria-labelledby="recordsTitle">
+      <div class="records-heading">
+        <h2 id="recordsTitle">記録一覧</h2>
+        <span id="count" class="count">0件</span>
+      </div>
+      <div id="recordList"></div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const STORAGE_KEY = 'research-log-records-v1';
+      const form = document.getElementById('recordForm');
+      const dateInput = document.getElementById('date');
+      const noteInput = document.getElementById('note');
+      const tagsInput = document.getElementById('tags');
+      const minutesInput = document.getElementById('minutes');
+      const progressInput = document.getElementById('progress');
+      const list = document.getElementById('recordList');
+      const count = document.getElementById('count');
+      const message = document.getElementById('message');
+      const totalMinutes = document.getElementById('totalMinutes');
+      const activeDays = document.getElementById('activeDays');
+      const totalRecords = document.getElementById('totalRecords');
+      const progressPeriod = document.getElementById('progressPeriod');
+      const weeklyMinutes = document.getElementById('weeklyMinutes');
+      const progressBar = document.getElementById('progressBar');
+      const progressTrack = document.querySelector('.progress-track');
+      const progressNote = document.getElementById('progressNote');
+      const tagProgress = document.getElementById('tagProgress');
+      const WEEKLY_GOAL = 300;
+      let records = loadRecords();
+
+      dateInput.value = new Date().toISOString().slice(0, 10);
+      render();
+
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        message.textContent = '';
+        const date = dateInput.value;
+        const note = noteInput.value.trim();
+        const tags = tagsInput.value.split(',').map(tag => tag.trim()).filter(Boolean).slice(0, 10);
+        const minutes = Number(minutesInput.value);
+        const progressValue = progressInput.value.trim() === '' ? 0 : Number(progressInput.value);
+
+        if (!date || !note || !Number.isInteger(minutes) || minutes < 1 || !Number.isInteger(progressValue) || progressValue < 0 || progressValue > 100) {
+          message.textContent = '日付・研究内容・1分以上の作業時間・0〜100%の進捗を入力してください。';
+          return;
+        }
+
+        records.unshift({ id: Date.now().toString(36) + Math.random().toString(36).slice(2), date, note, tags, minutes, progress: progressValue });
+        saveRecords();
+        render();
+        form.reset();
+        dateInput.value = new Date().toISOString().slice(0, 10);
+        noteInput.focus();
+      });
+
+      list.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-delete]');
+        if (!button) return;
+        records = records.filter(record => record.id !== button.dataset.delete);
+        saveRecords();
+        render();
+      });
+
+      function loadRecords() {
+        try {
+          const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+          return Array.isArray(stored) ? stored.filter(isValidRecord) : [];
+        } catch (_) { return []; }
+      }
+
+      function isValidRecord(record) {
+        return record && typeof record.id === 'string' && typeof record.date === 'string' &&
+          typeof record.note === 'string' && record.note.trim() && Number.isInteger(record.minutes) && record.minutes > 0;
+      }
+
+      function saveRecords() {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); } catch (_) {
+          message.textContent = '保存できませんでした。ブラウザの設定を確認してください。';
+        }
+      }
+
+      function render() {
+        count.textContent = `${records.length}件`;
+        renderProgress();
+        if (!records.length) {
+          list.innerHTML = '<p class="empty">まだ記録がありません。最初の研究ログを追加しましょう。</p>';
+          return;
+        }
+        list.innerHTML = records.map(record => `
+          <article class="record">
+            <time class="record-date" datetime="${escapeHtml(record.date)}">${escapeHtml(formatDate(record.date))}</time>
+            <div class="record-note">${escapeHtml(record.note)}</div>
+            <div class="record-time">${record.minutes}分 <button class="delete" type="button" data-delete="${escapeHtml(record.id)}" aria-label="${escapeHtml(record.note)}を削除">削除</button></div>
+            <div class="record-tags">タグ：${(Array.isArray(record.tags) ? record.tags : []).map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('') || '<span>なし</span>'}</div>
+            <div class="record-progress">進捗：${Number.isInteger(record.progress) ? record.progress : 0}%</div>
+          </article>
+        `).join('');
+      }
+
+      function renderProgress() {
+        const total = records.reduce((sum, record) => sum + record.minutes, 0);
+        const days = new Set(records.map(record => record.date)).size;
+        const week = getCurrentWeek();
+        const thisWeek = records.filter(record => record.date >= week.start && record.date <= week.end);
+        const weeklyTotal = thisWeek.reduce((sum, record) => sum + record.minutes, 0);
+        const percent = Math.min(100, Math.round((weeklyTotal / WEEKLY_GOAL) * 100));
+        totalMinutes.textContent = `${total}分`;
+        activeDays.textContent = `${days}日`;
+        totalRecords.textContent = `${records.length}件`;
+        progressPeriod.textContent = `${formatDate(week.start)}〜${formatDate(week.end)}`;
+        weeklyMinutes.textContent = `${weeklyTotal} / ${WEEKLY_GOAL}分`;
+        progressBar.style.width = `${percent}%`;
+        progressTrack.setAttribute('aria-valuenow', String(Math.min(weeklyTotal, WEEKLY_GOAL)));
+        progressNote.textContent = weeklyTotal >= WEEKLY_GOAL
+          ? '今週の目標を達成しました。すばらしい進み具合です！'
+          : `目標まであと${WEEKLY_GOAL - weeklyTotal}分です。`;
+        renderTagProgress();
+      }
+
+      function renderTagProgress() {
+        const latestByTag = new Map();
+        records.forEach(record => {
+          (Array.isArray(record.tags) ? record.tags : []).forEach(tag => {
+            if (!latestByTag.has(tag)) latestByTag.set(tag, Number.isInteger(record.progress) ? record.progress : 0);
+          });
+        });
+        if (!latestByTag.size) {
+          tagProgress.hidden = true;
+          return;
+        }
+        tagProgress.hidden = false;
+        tagProgress.innerHTML = '<h3 class="tag-progress-title">タグ別の進捗</h3>' + [...latestByTag].map(([tag, value]) => `
+          <div class="tag-progress-row">
+            <span class="tag-progress-name" title="${escapeHtml(tag)}">#${escapeHtml(tag)}</span>
+            <div class="progress-track" role="progressbar" aria-label="${escapeHtml(tag)}の進捗" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${value}"><div class="progress-bar" style="width: ${value}%"></div></div>
+            <span class="tag-progress-value">${value}%</span>
+          </div>
+        `).join('');
+      }
+
+      function getCurrentWeek() {
+        const now = new Date();
+        const day = now.getDay();
+        const diffToMonday = day === 0 ? -6 : 1 - day;
+        const monday = new Date(now);
+        monday.setDate(now.getDate() + diffToMonday);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        return { start: toDateValue(monday), end: toDateValue(sunday) };
+      }
+
+      function toDateValue(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+
+      function formatDate(value) {
+        const parts = value.split('-');
+        return parts.length === 3 ? `${parts[0]}/${parts[1]}/${parts[2]}` : value;
+      }
+
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
+      }
+    })();
+  </script>
+</body>
+</html>
