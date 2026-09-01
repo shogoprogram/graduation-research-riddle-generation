@@ -13,16 +13,17 @@ KANA_WORD = re.compile(r"^[ぁ-んァ-ン]{2,4}$")
 
 def build_dictionary(lex_csv: Path) -> set[str]:
     """UniDic lex.csvから2〜4文字の名詞・副詞を抽出する。"""
-    words: set[str] = set()
+    frequencies: dict[str, int] = {}
     with lex_csv.open(encoding="utf-8", newline="") as stream:
         for row in csv.reader(stream):
             if len(row) < 5:
                 continue
             word, pos = row[0].strip(), row[4].strip()
+            frequency = int(row[-1]) if row[-1].isdigit() else 999999999
             if pos in {"名詞", "副詞"} and KANA_WORD.fullmatch(word):
                 if not re.search(r"(.)\1{2,}", word):
-                    words.add(word)
-    return words
+                    frequencies[word] = min(frequencies.get(word, 999999999), frequency)
+    return set(word for word, _ in sorted(frequencies.items(), key=lambda item: (item[1], item[0]))[:12000])
 
 
 def build_curated_dictionary(word_list: Path) -> set[str]:
@@ -84,6 +85,7 @@ def main() -> None:
     parser.add_argument("--word-list", type=Path, help="事前確認済みの採用単語一覧（指定時はこちらを優先）")
     parser.add_argument("--output", type=Path, default=Path("generated_puzzle.json"))
     parser.add_argument("--pairs-js", type=Path, default=Path("generated_pairs.js"))
+    parser.add_argument("--words-js", type=Path, default=Path("unidic_candidates.js"))
     parser.add_argument("--seed", type=int, default=None)
     args = parser.parse_args()
     dictionary = build_curated_dictionary(args.word_list) if args.word_list else build_dictionary(args.lex_csv)
@@ -92,6 +94,8 @@ def main() -> None:
     payload = {"dictionary_count": len(dictionary), "pair_count": len(pairs), "puzzle": puzzle}
     args.output.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     args.pairs_js.write_text("window.generatedPairs = " + json.dumps(pairs, ensure_ascii=False) + ";\n", encoding="utf-8")
+    if not args.word_list:
+        args.words_js.write_text("window.unidicCandidates = " + json.dumps(sorted(dictionary), ensure_ascii=False) + ";\n", encoding="utf-8")
     print(json.dumps(payload, ensure_ascii=False, indent=2))
 
 
