@@ -9,9 +9,10 @@ import re
 from pathlib import Path
 
 KANA_WORD = re.compile(r"^[ぁ-んァ-ン]{2,4}$")
+TOP_WORD_LIMIT = 12600
 
 
-def build_dictionary(lex_csv: Path) -> set[str]:
+def build_dictionary(lex_csv: Path, limit: int = TOP_WORD_LIMIT) -> set[str]:
     """UniDic lex.csvから2〜4文字の名詞・副詞を抽出する。"""
     frequencies: dict[str, int] = {}
     with lex_csv.open(encoding="utf-8", newline="") as stream:
@@ -23,7 +24,7 @@ def build_dictionary(lex_csv: Path) -> set[str]:
             if pos in {"名詞", "副詞"} and KANA_WORD.fullmatch(word):
                 if not re.search(r"(.)\1{2,}", word):
                     frequencies[word] = min(frequencies.get(word, 999999999), frequency)
-    return set(word for word, _ in sorted(frequencies.items(), key=lambda item: (item[1], item[0]))[:12000])
+    return set(word for word, _ in sorted(frequencies.items(), key=lambda item: (item[1], item[0]))[:limit])
 
 
 def build_curated_dictionary(word_list: Path) -> set[str]:
@@ -86,9 +87,10 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=Path("generated_puzzle.json"))
     parser.add_argument("--pairs-js", type=Path, default=Path("generated_pairs.js"))
     parser.add_argument("--words-js", type=Path, default=Path("unidic_candidates.js"))
+    parser.add_argument("--limit", type=int, default=TOP_WORD_LIMIT, help="使用頻度順位の上限")
     parser.add_argument("--seed", type=int, default=None)
     args = parser.parse_args()
-    dictionary = build_curated_dictionary(args.word_list) if args.word_list else build_dictionary(args.lex_csv)
+    dictionary = build_curated_dictionary(args.word_list) if args.word_list else build_dictionary(args.lex_csv, args.limit)
     pairs = search_pairs(dictionary)
     puzzle = make_puzzle(pairs, random.Random(args.seed))
     payload = {"dictionary_count": len(dictionary), "pair_count": len(pairs), "puzzle": puzzle}
