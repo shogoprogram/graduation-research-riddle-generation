@@ -6,7 +6,7 @@ GeminiのAPIキーを環境変数に設定してから、プロジェクトフ�
 
 ```powershell
 $env:GEMINI_API_KEY = "あなたのAPIキー"
-python ai_server.py
+py app.py
 ```
 
-その後 `http://localhost:8000` をブラウザで開き、画面の「AIで問題を作る」を押します。APIキーはHTMLやGitHubには保存しません。キーがない場合は、登録済みの規則による自動生成を使えます。
+その後 `http://localhost:8000` をブラウザで開き、画面の「AIで問題を作る」を押します。APIキーはHTMLやGitHubには保存しません。単語探索・規則適用・問題生成・ヒント生成・判定を `app.py` だけで行います。
