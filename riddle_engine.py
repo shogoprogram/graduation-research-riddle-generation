@@ -75,6 +75,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="UniDicから謎解き問題を生成します")
     parser.add_argument("--lex-csv", type=Path, required=True, help="UniDicのlex.csv")
     parser.add_argument("--output", type=Path, default=Path("generated_puzzle.json"))
+    parser.add_argument("--pairs-js", type=Path, default=Path("generated_pairs.js"))
     parser.add_argument("--seed", type=int, default=None)
     args = parser.parse_args()
     dictionary = build_dictionary(args.lex_csv)
@@ -82,6 +83,7 @@ def main() -> None:
     puzzle = make_puzzle(pairs, random.Random(args.seed))
     payload = {"dictionary_count": len(dictionary), "pair_count": len(pairs), "puzzle": puzzle}
     args.output.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    args.pairs_js.write_text("window.generatedPairs = " + json.dumps(pairs, ensure_ascii=False) + ";\n", encoding="utf-8")
     print(json.dumps(payload, ensure_ascii=False, indent=2))
 
 
