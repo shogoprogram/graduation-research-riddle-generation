@@ -3,11 +3,16 @@ from __future__ import annotations
 
 import json
 import os
+import random
+import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).parent
+sys.path.insert(0, str(ROOT))
+from riddle_engine import judge, make_puzzle, search_pairs
+
 MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
 
 
@@ -16,8 +21,8 @@ def ask_gemini(payload: dict) -> dict:
     if not key:
         raise RuntimeError("GEMINI_API_KEY が設定されていません。")
     prompt = {
-        "pairs": payload.get("pairs", [])[:30],
-        "request": "小学生にも分かる謎解きを1問作成してください。提示したペア群から、同じ規則の例題2つと問題1つを選び、ヒント3段階、答え、短い解説を作ってください。答えは問題のペアのanswerと一致させてください。",
+        "pairs": payload.get("pairs", [])[:60],
+        "request": "提示した単語ペア群を探索結果として確認し、同じruleのペアを3つ選んで、小学生にも分かる謎解きを1問作成してください。例題2つと問題1つ、ヒント3段階、答え、短い解説を作ってください。",
         "format": {"title": "文字列", "problem": ["文字列"], "hints": ["文字列", "文字列", "文字列"], "answer": "文字列", "explanation": "文字列"},
     }
     body = json.dumps({"contents": [{"parts": [{"text": json.dumps(prompt, ensure_ascii=False)}]}], "generationConfig": {"responseMimeType": "application/json"}}).encode()
@@ -29,7 +34,31 @@ def ask_gemini(payload: dict) -> dict:
     required = {"title", "problem", "hints", "answer", "explanation"}
     if not required <= generated.keys() or len(generated["hints"]) != 3:
         raise ValueError("AIの返却形式が不正です。")
+    selected = next((p for p in payload.get("pairs", []) if p.get("source") == generated.get("answer_source") and p.get("answer") == generated.get("answer")), None)
+    if selected is None:
+        selected = next((p for p in payload.get("pairs", []) if p.get("answer") == generated.get("answer")), None)
+    if selected is None:
+        raise ValueError("AIが辞書内にない答えを返しました。")
+    generated["judgement"] = judge(selected["source"], selected["answer"])
+    generated["rule"] = selected["rule"]
     return generated
+
+
+def generate(payload: dict) -> tuple[dict, int, int]:
+    """単語探索→規則ペア作成→AI生成。AIが使えない場合は固定生成へ退避する。"""
+    words = {str(word).strip() for word in payload.get("words", []) if isinstance(word, str)}
+    pairs = search_pairs(words)
+    if len(pairs) < 3:
+        raise ValueError("成立する単語ペアが3組未満です。単語を追加してください。")
+    try:
+        puzzle = ask_gemini({"pairs": pairs})
+        return puzzle, len(words), len(pairs)
+    except Exception as error:
+        if os.environ.get("AI_REQUIRED") == "1":
+            raise
+        puzzle = make_puzzle(pairs, random.Random())
+        puzzle["aiFallback"] = str(error)
+        return puzzle, len(words), len(pairs)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -52,7 +81,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             length = int(self.headers.get("Content-Length", "0"))
             data = json.loads(self.rfile.read(length))
-            self._send(200, {"puzzle": ask_gemini(data)})
+            puzzle, word_count, pair_count = generate(data)
+            self._send(200, {"puzzle": puzzle, "wordCount": word_count, "pairCount": pair_count, "aiUsed": "aiFallback" not in puzzle})
         except Exception as error:
             self._send(400, {"error": str(error)})
 

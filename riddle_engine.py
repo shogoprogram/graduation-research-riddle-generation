@@ -43,6 +43,15 @@ def replace_at(word: str, index: int, table: dict[str, str]) -> str | None:
     return word[:index] + table[word[index]] + word[index + 1:] if word[index] in table else None
 
 
+def replacements(word: str, table: dict[str, str]) -> list[str]:
+    results = []
+    for index in range(len(word)):
+        result = replace_at(word, index, table)
+        if result:
+            results.append(result)
+    return results
+
+
 def generate_rules() -> list[tuple[str, Callable[[str], list[str]]]]:
     rules: list[tuple[str, Callable[[str], list[str]]]] = []
     rules += [("先頭1文字削除", lambda w: [w[1:]] if len(w) >= 3 else []),
@@ -54,8 +63,8 @@ def generate_rules() -> list[tuple[str, Callable[[str], list[str]]]]:
     rules += [("先頭文字置換", lambda w: [c + w[1:] for c in KANA] if w else []),
               ("末尾文字置換", lambda w: [w[:-1] + c for c in KANA] if w else []),
               ("中間文字置換", lambda w: [w[:i] + c + w[i + 1:] for i in range(1, len(w) - 1) for c in KANA] if len(w) >= 3 else [])]
-    rules.append(("濁点・清音変換", lambda w: [x for i in range(len(w)) if (x := replace_at(w, i, DAKUTEN))]))
-    rules.append(("半濁点変換", lambda w: [x for i in range(len(w)) if (x := replace_at(w, i, HANDAKUTEN))]))
+    rules.append(("濁点・清音変換", lambda w: replacements(w, DAKUTEN)))
+    rules.append(("半濁点変換", lambda w: replacements(w, HANDAKUTEN)))
     rules.append(("母音変換", lambda w: [w[:i] + v + w[i + 1:] for i, ch in enumerate(w) if ch in VOWELS for v in VOWELS if v != ch]))
     rules.append(("子音スライド", lambda w: [w[:i] + c + w[i + 1:] for i, ch in enumerate(w) for row in ROWS if ch in row for c in row if c != ch]))
     rules.append(("逆読み", lambda w: [w[::-1]] if len(w) >= 2 else []))
