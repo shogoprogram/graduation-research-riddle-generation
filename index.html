@@ -13,6 +13,7 @@
 <body>
   <main class="wrap">
     <header><p class="eyebrow">MYSTERY PUZZLE</p><h1>謎解き</h1><p class="sub">問題文から手がかりを見つけて、答えを入力してください。</p></header>
+    <section class="card source-card"><div class="meta"><strong>辞書を読み込む</strong><span>UniDic lex.csv対応</span></div><p class="sub">UniDicのlex.csvを選択すると、辞書構築・探索・問題生成を実行します。</p><input id="lexFile" type="file" accept=".csv,text/csv"><p id="sourceMessage" class="message" role="status">サンプル辞書で表示中</p></section>
     <section class="card" aria-labelledby="puzzleTitle">
       <div class="meta"><span id="number">第1問</span><span id="progress">1 / 2</span></div>
       <h2 id="puzzleTitle" class="puzzle-title"></h2>
@@ -27,11 +28,16 @@
   <script>
     (()=>{
       // 問題データは表示用HTMLとは分離し、ここで管理します。実運用ではAPIやJSONに置き換え可能です。
-      const puzzles=[
+      let puzzles=[
         {title:'消えた文字',problem:'すいか → いか\nみかん → かん\nさくら → ？',hints:['どちらも、元の言葉の最初の文字が消えています。','「さくら」の最初の1文字を確認してください。','残った3文字を、そのまま答えにします。'],answer:'くら',explanation:'「すいか」から「す」を取ると「いか」、「みかん」から「み」を取ると「かん」になります。同じ規則で「さくら」から最初の「さ」を取るので、答えは「くら」です。'},
         {title:'順番の暗号',problem:'次の言葉は、ある規則で短くなっています。\n「りんご」→「ご」\n「うみ」→「み」\nでは、「たまご」は何になるでしょう？',hints:['最後に残っている文字に注目してください。','元の言葉の最後の1文字だけが答えになります。','「たまご」の最後の文字を書いてください。'],answer:'ご',explanation:'どちらも元の言葉の末尾だけを残しています。「たまご」の最後の文字は「ご」なので、答えは「ご」です。'}
       ];
       let index=0,correct=0;const $=id=>document.getElementById(id);
+      const kana=/^[ぁ-んァ-ン]{2,4}$/;
+      function parseCsv(text){const rows=[];let row=[],cell='',quoted=false;for(let i=0;i<text.length;i++){const ch=text[i],next=text[i+1];if(ch==='"'&&quoted&&next==='"'){cell+='"';i++}else if(ch==='"'){quoted=!quoted}else if(ch===','&&!quoted){row.push(cell);cell=''}else if((ch==='\\n'||ch==='\\r')&&!quoted){if(ch==='\\r'&&next==='\\n')i++;row.push(cell);if(row.some(Boolean))rows.push(row);row=[];cell=''}else cell+=ch}if(cell||row.length){row.push(cell);rows.push(row)}return rows}
+      function buildPairs(csv){const dict=new Set();parseCsv(csv).forEach(row=>{const word=(row[0]||'').trim(),pos=(row[4]||'').trim();if((pos==='名詞'||pos==='副詞')&&kana.test(word)&&!/(.)\\1{2,}/.test(word))dict.add(word)});const pairs=[...dict].filter(w=>w.length>=3&&dict.has(w.slice(1))).map(source=>({source,answer:source.slice(1)}));return {dict,pairs}}
+      function makePuzzles(pairs){if(pairs.length<3)throw new Error('成立する単語ペアが3組未満です。');return pairs.slice(0,Math.min(30,pairs.length)).map((main,i,all)=>{const examples=all.filter(p=>p.source!==main.source).slice(0,2);return {title:'生成された謎',problem:`${examples[0].source} → ${examples[0].answer}\\n${examples[1].source} → ${examples[1].answer}\\n${main.source} → ？`,hints:['矢印の前と後で、文字の位置を比べてみよう。',`元の単語は${main.source.length}文字、答えは${main.answer.length}文字です。`,`「${examples[0].source}」も、先頭の1文字を削除すると「${examples[0].answer}」になります。`],answer:main.answer,explanation:`例題は先頭の1文字を削除する規則です。「${main.source}」から先頭の「${main.source[0]}」を削除すると「${main.answer}」になります。`}})}
+      $('lexFile').addEventListener('change',async()=>{const file=$('lexFile').files[0];if(!file)return;try{const {dict,pairs}=buildPairs(await file.text());puzzles=makePuzzles(pairs);index=0;render();$('sourceMessage').textContent=`辞書${dict.size}語から${pairs.length}組を生成しました。`;$('sourceMessage').className='message correct'}catch(error){$('sourceMessage').textContent=error.message;$('sourceMessage').className='message wrong'}});
       function editDistance(a,b){const row=Array.from({length:b.length+1},(_,i)=>i);for(let i=1;i<=a.length;i++){let prev=row[0];row[0]=i;for(let j=1;j<=b.length;j++){const temp=row[j],cost=a[i-1]===b[j-1]?0:1;row[j]=Math.min(row[j]+1,row[j-1]+1,prev+cost);prev=temp}}return row[b.length]}
       function render(){const p=puzzles[index];const distance=editDistance(p.problem.split('\\n')[0].split(' → ')[0],p.answer),score=Math.max(0,Math.round((1-distance/Math.max(p.answer.length+1,p.answer.length))*100));$('number').textContent=`第${index+1}問`;$('progress').textContent=`${index+1} / ${puzzles.length}`;$('puzzleTitle').textContent=p.title;$('problem').textContent=p.problem;$('hint1').textContent=p.hints[0];$('hint2').textContent=p.hints[1];$('hint3').textContent=p.hints[2];$('answer').value='';$('message').textContent='';$('message').className='message';$('solution').className='solution';$('solutionAnswer').textContent=`答え：${p.answer}`;$('explanation').textContent=p.explanation;$('judgeScore').textContent=`${score}点`;$('judgeMessage').textContent=score>=50?`編集距離 ${distance}：採用候補`:`編集距離 ${distance}：除外候補`;$('next').hidden=true;$('correctCount').textContent=`正解数：${correct}`}
       function answer(){const p=puzzles[index],value=$('answer').value.trim();if(!value){$('message').textContent='答えを入力してください。';$('message').className='message wrong';return}if(value===p.answer){correct++;$('message').textContent='正解です！';$('message').className='message correct';$('solution').className='solution visible';$('correctCount').textContent=`正解数：${correct}`;$('next').hidden=index===puzzles.length-1}else{$('message').textContent='惜しいです。ヒントを確認して、もう一度考えてみてください。';$('message').className='message wrong'}}
