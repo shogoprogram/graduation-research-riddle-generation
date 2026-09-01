@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <rect width="1600" height="900" fill="#fbfcfa"/>
+  <style>text{font-family:'Yu Gothic','Meiryo',sans-serif;fill:#111} .title{fill:#193756;font-size:54px;font-weight:400;letter-spacing:5px} .box{fill:#fff;stroke:#9bbb55;stroke-width:3} .num{fill:#fff;stroke:#9bbb55;stroke-width:3} .head{font-size:27px} .body{font-size:20px} .small{font-size:16px;font-weight:700}</style>
+  <text x="80" y="105" class="title">システムの手順</text>
+  <g transform="translate(80,185)">
+    <g><rect class="box" width="300" height="235"/><circle class="num" cx="0" cy="0" r="37"/><text x="-10" y="14" font-size="34">1</text><text x="150" y="82" text-anchor="middle" class="head">辞書構築</text><text x="150" y="126" text-anchor="middle" class="body">2〜4文字の名</text><text x="150" y="157" text-anchor="middle" class="body">詞や副詞など</text></g>
+    <path d="M325 118h38l-18-12 18 12-18 12" fill="none" stroke="#9bbb55" stroke-width="5"/>
+    <g transform="translate(390)"><rect class="box" width="300" height="235"/><circle class="num" cx="0" cy="0" r="37"/><text x="-10" y="14" font-size="34">2</text><text x="150" y="82" text-anchor="middle" class="head">規則生成</text><text x="46" y="126" class="body">1.　人間入力</text><text x="46" y="157" class="body">2.　AI推測</text><text x="46" y="188" class="body">3.　人間＋AI</text></g>
+    <path d="M715 118h38l-18-12 18 12-18 12" fill="none" stroke="#9bbb55" stroke-width="5"/>
+    <g transform="translate(780)"><rect class="box" width="300" height="235"/><circle class="num" cx="0" cy="0" r="37"/><text x="-10" y="14" font-size="34">3</text><text x="150" y="62" text-anchor="middle" class="head">入力</text><text x="20" y="104" class="body">1.　A → ？（新単語から）</text><text x="20" y="137" class="body">2.　？ → B（元単語から）</text><text x="20" y="170" class="body">3.　規則 から</text></g>
+    <path d="M1105 118h38l-18-12 18 12-18 12" fill="none" stroke="#9bbb55" stroke-width="5"/>
+    <g transform="translate(1170)"><rect class="box" width="300" height="235"/><circle class="num" cx="0" cy="0" r="37"/><text x="-10" y="14" font-size="34">4</text><text x="150" y="62" text-anchor="middle" class="head">探索</text><text x="18" y="102" class="small">単語を取得し、全ての単語に</text><text x="18" y="126" class="small">規則を適用。辞書に存在する</text><text x="18" y="150" class="small">か確認し、不成立を除外、</text><text x="18" y="174" class="small">ペアを生成する</text></g>
+  </g>
+  <g transform="translate(80,570)">
+    <g><rect class="box" width="300" height="235"/><circle class="num" cx="0" cy="0" r="37"/><text x="-10" y="14" font-size="34">5</text><text x="150" y="82" text-anchor="middle" class="head">問題生成</text><text x="150" y="128" text-anchor="middle" class="body" font-weight="700">すいか → いか</text><text x="150" y="158" text-anchor="middle" class="body" font-weight="700">みかん → かん</text><text x="150" y="188" text-anchor="middle" class="body" font-weight="700">さくら → ？</text></g>
+    <path d="M325 118h38l-18-12 18 12-18 12" fill="none" stroke="#9bbb55" stroke-width="5"/>
+    <g transform="translate(390)"><rect class="box" width="300" height="235"/><circle class="num" cx="0" cy="0" r="37"/><text x="-10" y="14" font-size="34">6</text><text x="150" y="82" text-anchor="middle" class="head">ヒント生成</text><text x="150" y="132" text-anchor="middle" class="body" font-weight="700">文字数</text><text x="150" y="162" text-anchor="middle" class="body" font-weight="700">位置</text><text x="150" y="192" text-anchor="middle" class="body" font-weight="700">規則</text></g>
+    <path d="M715 118h38l-18-12 18 12-18 12" fill="none" stroke="#9bbb55" stroke-width="5"/>
+    <g transform="translate(780)"><rect class="box" width="300" height="235"/><circle class="num" cx="0" cy="0" r="37"/><text x="-10" y="14" font-size="34">7</text><text x="150" y="62" text-anchor="middle" class="head">判定</text><text x="18" y="103" class="small">文字列の変化量が、人にとって</text><text x="18" y="127" class="small">「無理のない変換か」を0〜100</text><text x="18" y="151" class="small">点のスコアで厳密に算出する。</text><text x="18" y="182" class="body">（編集距離が0は除外）</text></g>
+    <path d="M1105 118h38l-18-12 18 12-18 12" fill="none" stroke="#9bbb55" stroke-width="5"/>
+    <g transform="translate(1170)"><rect class="box" width="300" height="235"/><circle class="num" cx="0" cy="0" r="37"/><text x="-10" y="14" font-size="34">8</text><text x="150" y="102" text-anchor="middle" class="head">出力</text><text x="150" y="155" text-anchor="middle" class="body" font-weight="700">あ</text></g>
+  </g>
+</svg>
