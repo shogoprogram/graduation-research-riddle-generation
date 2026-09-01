@@ -25,6 +25,13 @@ def build_dictionary(lex_csv: Path) -> set[str]:
     return words
 
 
+def build_curated_dictionary(word_list: Path) -> set[str]:
+    return {
+        word.strip() for word in word_list.read_text(encoding="utf-8").splitlines()
+        if word.strip() and not word.lstrip().startswith("#") and KANA_WORD.fullmatch(word.strip())
+    }
+
+
 def search_pairs(dictionary: set[str]) -> list[dict[str, str]]:
     """辞書内の全単語へ固定規則を適用し、成立したペアだけ返す。"""
     return [
@@ -74,11 +81,12 @@ def make_puzzle(pairs: list[dict[str, str]], rng: random.Random) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description="UniDicから謎解き問題を生成します")
     parser.add_argument("--lex-csv", type=Path, required=True, help="UniDicのlex.csv")
+    parser.add_argument("--word-list", type=Path, help="事前確認済みの採用単語一覧（指定時はこちらを優先）")
     parser.add_argument("--output", type=Path, default=Path("generated_puzzle.json"))
     parser.add_argument("--pairs-js", type=Path, default=Path("generated_pairs.js"))
     parser.add_argument("--seed", type=int, default=None)
     args = parser.parse_args()
-    dictionary = build_dictionary(args.lex_csv)
+    dictionary = build_curated_dictionary(args.word_list) if args.word_list else build_dictionary(args.lex_csv)
     pairs = search_pairs(dictionary)
     puzzle = make_puzzle(pairs, random.Random(args.seed))
     payload = {"dictionary_count": len(dictionary), "pair_count": len(pairs), "puzzle": puzzle}
