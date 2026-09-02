@@ -16,6 +16,10 @@ ROOT = Path(__file__).parent
 # 直接入力する場合は、下の文字列にAPIキーを入れてください。
 API_KEY = os.environ.get("GEMINI_API_KEY", "")
 # =====================================================
+# ==================== ①辞書・単語リスト ====================
+# 12,600語の単語リストを起動時に読み込み、AIへ渡します。
+WORD_LIST_FILE = ROOT / "unidic_candidates.js"
+# =====================================================
 KANA_WORD = re.compile(r"^[ぁ-んァ-ン]{2,4}$")
 KANA = "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん"
 VOWELS = "あいうえお"
@@ -28,6 +32,16 @@ HANDAKUTEN.update({v: k for k, v in list(HANDAKUTEN.items())})
 
 def build_dictionary(words):
     return {w.strip() for w in words if isinstance(w, str) and KANA_WORD.fullmatch(w.strip())}
+
+
+def load_word_list():
+    if not WORD_LIST_FILE.is_file():
+        return set()
+    text = WORD_LIST_FILE.read_text(encoding="utf-8")
+    start, end = text.find("["), text.rfind("]")
+    if start < 0 or end < start:
+        return set()
+    return build_dictionary(json.loads(text[start:end + 1]))
 
 
 def replace_at(word, index, table):
@@ -153,7 +167,8 @@ class Handler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", "0"))
             payload = json.loads(self.rfile.read(length))
             print("① 採用単語を受け取りました。", flush=True)
-            words = build_dictionary(payload.get("words", []))
+            received_words = payload.get("words", [])
+            words = build_dictionary(received_words) if received_words else load_word_list()
             print(f"② 単語を精査しました: {len(words)}語", flush=True)
             pairs = search_pairs(words)
             print(f"③ 規則を全種類適用しました: {len(pairs)}組", flush=True)
