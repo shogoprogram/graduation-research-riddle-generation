@@ -107,8 +107,12 @@ def judge(source, answer):
 
 
 def fallback(pairs):
-    main = random.choice(pairs)
-    examples = random.sample([p for p in pairs if p["source"] != main["source"]], 2)
+    groups = {}
+    for pair in pairs:
+        groups.setdefault(pair["rule"], []).append(pair)
+    group = random.choice([items for items in groups.values() if len(items) >= 3])
+    main = random.choice(group)
+    examples = random.sample([p for p in group if p["source"] != main["source"]], 2)
     return {"title": "生成された謎", "problem": [f"{p['source']} → {p['answer']}" for p in examples] + [f"{main['source']} → ？"], "answer": main["answer"], "rule": main["rule"], "hints": ["矢印の前後で、文字の位置・数・音の変化を比べてみよう。", f"元の単語は{len(main['source'])}文字、答えは{len(main['answer'])}文字です。", f"例題の「{examples[0]['source']}」にも同じ規則が使われています。"], "explanation": f"「{main['source']}」に「{main['rule']}」を適用すると「{main['answer']}」になります。", "judgement": judge(main["source"], main["answer"])}
 
 
@@ -118,14 +122,20 @@ def ai_generate(pairs):
     if not key:
         print("⑤ APIキーがないため、自動生成に切り替えます。", flush=True)
         return fallback(pairs), False
-    prompt = {"pairs": pairs[:60], "request": "同じruleの単語ペアを3つ選び、小学生向けの謎解きを作成してください。JSONのみで返してください。", "format": {"title": "文字列", "problem": ["文字列"], "hints": ["文字列", "文字列", "文字列"], "answer": "文字列", "explanation": "文字列"}}
+    groups = {}
+    for pair in pairs:
+        groups.setdefault(pair["rule"], []).append(pair)
+    groups = {rule: items[:40] for rule, items in groups.items() if len(items) >= 3}
+    if not groups:
+        return fallback(pairs), False
+    prompt = {"pairs_by_rule": groups, "request": "必ず1つのruleだけを選び、そのruleのペアを3つ使ってください。例題2つと問題1つを作成し、ヒントは①文字数、②位置、③変化している規則の順にしてください。JSONのみで返してください。", "format": {"title": "文字列", "rule": "文字列", "answer_source": "文字列", "problem": ["文字列", "文字列", "文字列"], "hints": ["文字数のヒント", "位置のヒント", "規則のヒント"], "answer": "文字列", "explanation": "文字列"}}
     body = json.dumps({"contents": [{"parts": [{"text": json.dumps(prompt, ensure_ascii=False)}]}], "generationConfig": {"responseMimeType": "application/json"}}).encode()
     request = Request(f"https://generativelanguage.googleapis.com/v1beta/models/{os.environ.get('GEMINI_MODEL', 'gemini-2.0-flash')}:generateContent?key={key}", data=body, headers={"Content-Type": "application/json"}, method="POST")
     with urlopen(request, timeout=45) as response:
         data = json.load(response)
     puzzle = json.loads(data["candidates"][0]["content"]["parts"][0]["text"])
-    selected = next((p for p in pairs if p["answer"] == puzzle.get("answer")), None)
-    if selected is None or len(puzzle.get("hints", [])) != 3:
+    selected = next((p for p in groups.get(puzzle.get("rule"), []) if p["source"] == puzzle.get("answer_source") and p["answer"] == puzzle.get("answer")), None)
+    if selected is None or len(puzzle.get("problem", [])) != 3 or len(puzzle.get("hints", [])) != 3:
         raise ValueError("AIの返却内容を検証できませんでした")
     puzzle["judgement"] = judge(selected["source"], selected["answer"])
     puzzle["rule"] = selected["rule"]
