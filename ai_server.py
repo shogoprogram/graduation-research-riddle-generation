@@ -87,10 +87,13 @@ class Handler(BaseHTTPRequestHandler):
             self._send(400, {"error": str(error)})
 
     def do_GET(self):
-        if self.path in {"/", "/index.html"}:
-            raw = (ROOT / "index.html").read_bytes()
+        relative = self.path.lstrip("/") or "index.html"
+        target = (ROOT / relative).resolve()
+        if target.parent == ROOT and target.is_file() and target.suffix in {".html", ".js", ".json"}:
+            raw = target.read_bytes()
             self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
+            content_type = {".html": "text/html", ".js": "text/javascript", ".json": "application/json"}[target.suffix]
+            self.send_header("Content-Type", content_type + "; charset=utf-8")
             self.end_headers()
             self.wfile.write(raw)
         else:

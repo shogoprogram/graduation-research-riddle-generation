@@ -12,6 +12,10 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).parent
+# ==================== APIキー入力欄 ====================
+# 直接入力する場合は、下の文字列にAPIキーを入れてください。
+API_KEY = os.environ.get("GEMINI_API_KEY", "")
+# =====================================================
 KANA_WORD = re.compile(r"^[ぁ-んァ-ン]{2,4}$")
 KANA = "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん"
 VOWELS = "あいうえお"
@@ -95,8 +99,10 @@ def fallback(pairs):
 
 
 def ai_generate(pairs):
-    key = os.environ.get("GEMINI_API_KEY")
+    print("⑤ AIに問題・ヒント・解説の生成を依頼しています...", flush=True)
+    key = API_KEY
     if not key:
+        print("⑤ APIキーがないため、自動生成に切り替えます。", flush=True)
         return fallback(pairs), False
     prompt = {"pairs": pairs[:60], "request": "同じruleの単語ペアを3つ選び、小学生向けの謎解きを作成してください。JSONのみで返してください。", "format": {"title": "文字列", "problem": ["文字列"], "hints": ["文字列", "文字列", "文字列"], "answer": "文字列", "explanation": "文字列"}}
     body = json.dumps({"contents": [{"parts": [{"text": json.dumps(prompt, ensure_ascii=False)}]}], "generationConfig": {"responseMimeType": "application/json"}}).encode()
@@ -109,6 +115,7 @@ def ai_generate(pairs):
         raise ValueError("AIの返却内容を検証できませんでした")
     puzzle["judgement"] = judge(selected["source"], selected["answer"])
     puzzle["rule"] = selected["rule"]
+    print("⑤ AI生成が完了しました。", flush=True)
     return puzzle, True
 
 
@@ -126,10 +133,13 @@ class Handler(BaseHTTPRequestHandler):
         self.send_json(204, {})
 
     def do_GET(self):
-        if self.path in {"/", "/index.html"}:
-            raw = (ROOT / "index.html").read_bytes()
+        relative = self.path.lstrip("/") or "index.html"
+        target = (ROOT / relative).resolve()
+        if target.parent == ROOT and target.is_file() and target.suffix in {".html", ".js", ".json"}:
+            raw = target.read_bytes()
             self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
+            content_type = {".html": "text/html", ".js": "text/javascript", ".json": "application/json"}[target.suffix]
+            self.send_header("Content-Type", content_type + "; charset=utf-8")
             self.end_headers()
             self.wfile.write(raw)
         else:
@@ -142,16 +152,22 @@ class Handler(BaseHTTPRequestHandler):
         try:
             length = int(self.headers.get("Content-Length", "0"))
             payload = json.loads(self.rfile.read(length))
+            print("① 採用単語を受け取りました。", flush=True)
             words = build_dictionary(payload.get("words", []))
+            print(f"② 単語を精査しました: {len(words)}語", flush=True)
             pairs = search_pairs(words)
+            print(f"③ 規則を全種類適用しました: {len(pairs)}組", flush=True)
             if len(pairs) < 3:
                 raise ValueError("成立する単語ペアが3組未満です")
+            print("④ 成立する単語ペアを確認しました。", flush=True)
             puzzle, used = ai_generate(pairs)
+            print("⑥ 判定結果を計算しました。", flush=True)
             self.send_json(200, {"puzzle": puzzle, "wordCount": len(words), "pairCount": len(pairs), "aiUsed": used})
         except Exception as error:
             self.send_json(400, {"error": str(error)})
 
 
 if __name__ == "__main__":
+    print("① システムを起動しています...", flush=True)
     print("http://localhost:8000 で起動しました")
     ThreadingHTTPServer(("localhost", 8000), Handler).serve_forever()
