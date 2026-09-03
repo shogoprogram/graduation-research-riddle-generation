@@ -116,7 +116,7 @@ def fallback(pairs):
     return {"title": "生成された謎", "problem": [f"{p['source']} → {p['answer']}" for p in examples] + [f"{main['source']} → ？"], "answer": main["answer"], "rule": main["rule"], "hints": ["矢印の前後で、文字の位置・数・音の変化を比べてみよう。", f"元の単語は{len(main['source'])}文字、答えは{len(main['answer'])}文字です。", f"例題の「{examples[0]['source']}」にも同じ規則が使われています。"], "explanation": f"「{main['source']}」に「{main['rule']}」を適用すると「{main['answer']}」になります。", "judgement": judge(main["source"], main["answer"])}
 
 
-def ai_generate(pairs):
+def ai_generate(pairs, theme=""):
     print("⑤ AIに問題・ヒント・解説の生成を依頼しています...", flush=True)
     key = API_KEY
     if not key:
@@ -128,7 +128,7 @@ def ai_generate(pairs):
     groups = {rule: items[:40] for rule, items in groups.items() if len(items) >= 3}
     if not groups:
         return fallback(pairs), False
-    prompt = {"pairs_by_rule": groups, "request": "必ず1つのruleだけを選び、そのruleのペアを3つ使ってください。例題2つと問題1つを作成し、ヒントは①文字数、②位置、③変化している規則の順にしてください。JSONのみで返してください。", "format": {"title": "文字列", "rule": "文字列", "answer_source": "文字列", "problem": ["文字列", "文字列", "文字列"], "hints": ["文字数のヒント", "位置のヒント", "規則のヒント"], "answer": "文字列", "explanation": "文字列"}}
+    prompt = {"pairs_by_rule": groups, "theme": theme or "指定なし", "request": "必ず1つのruleだけを選び、そのruleのペアを3つ使ってください。例題2つと問題1つを作成し、ヒントは①文字数、②位置、③変化している規則の順にしてください。テーマがあれば問題文や表現に取り入れてください。JSONのみで返してください。", "format": {"title": "文字列", "rule": "文字列", "answer_source": "文字列", "problem": ["文字列", "文字列", "文字列"], "hints": ["文字数のヒント", "位置のヒント", "規則のヒント"], "answer": "文字列", "explanation": "文字列"}}
     body = json.dumps({"contents": [{"parts": [{"text": json.dumps(prompt, ensure_ascii=False)}]}], "generationConfig": {"responseMimeType": "application/json"}}).encode()
     request = Request(f"https://generativelanguage.googleapis.com/v1beta/models/{os.environ.get('GEMINI_MODEL', 'gemini-2.0-flash')}:generateContent?key={key}", data=body, headers={"Content-Type": "application/json"}, method="POST")
     with urlopen(request, timeout=45) as response:
@@ -181,11 +181,21 @@ class Handler(BaseHTTPRequestHandler):
             words = build_dictionary(received_words) if received_words else load_word_list()
             print(f"② 単語を精査しました: {len(words)}語", flush=True)
             pairs = search_pairs(words)
+            source = str(payload.get("source", "")).strip()
+            answer = str(payload.get("answer", "")).strip()
+            requested_rule = str(payload.get("rule", "")).strip()
+            anchor = [pair for pair in pairs if (not source or pair["source"] == source) and (not answer or pair["answer"] == answer)]
+            if source or answer:
+                if not anchor:
+                    raise ValueError("指定された単語で成立するペアが見つかりません")
+                requested_rule = requested_rule or anchor[0]["rule"]
+            if requested_rule and requested_rule != "自動":
+                pairs = [pair for pair in pairs if pair["rule"] == requested_rule]
             print(f"③ 規則を全種類適用しました: {len(pairs)}組", flush=True)
             if len(pairs) < 3:
                 raise ValueError("成立する単語ペアが3組未満です")
             print("④ 成立する単語ペアを確認しました。", flush=True)
-            puzzle, used = ai_generate(pairs)
+            puzzle, used = ai_generate(pairs, str(payload.get("theme", "")).strip())
             print("⑥ 判定結果を計算しました。", flush=True)
             self.send_json(200, {"puzzle": puzzle, "wordCount": len(words), "pairCount": len(pairs), "aiUsed": used})
         except Exception as error:
