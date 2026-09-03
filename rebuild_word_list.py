@@ -38,6 +38,9 @@ def build_words():
             source_word = row[0]
             if source_word in EXCLUDED:
                 continue
+            # 元データ側の読みも2〜4文字に限定する。見出し語だけで判定すると、別語形が大量に混ざる。
+            if not re.fullmatch(r"[ぁ-んァ-ヶー]{2,4}", source_word):
+                continue
             # 読み（とーてー）ではなく、UniDicの語彙見出し（トウテイ）を使う。
             # 和語はひらがな、外来語は一般的なカタカナ表記にする。
             lexical_form = row[10] if len(row) > 10 else source_word
