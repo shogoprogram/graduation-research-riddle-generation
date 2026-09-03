@@ -129,7 +129,8 @@ def ai_generate(pairs, theme=""):
         return fallback(pairs), False
     prompt = {"pairs_by_rule": groups, "theme": theme or "指定なし", "request": "必ず1つのruleだけを選び、そのruleのペアを3つ使ってください。例題2つと問題1つを作成し、ヒントは①文字数、②位置、③変化している規則の順にしてください。テーマがあれば問題文や表現に取り入れてください。JSONのみで返してください。", "format": {"title": "文字列", "rule": "文字列", "answer_source": "文字列", "problem": ["文字列", "文字列", "文字列"], "hints": ["文字数のヒント", "位置のヒント", "規則のヒント"], "answer": "文字列", "explanation": "文字列"}}
     body = json.dumps({"contents": [{"parts": [{"text": json.dumps(prompt, ensure_ascii=False)}]}], "generationConfig": {"responseMimeType": "application/json"}}).encode()
-    request = Request(f"https://generativelanguage.googleapis.com/v1beta/models/{os.environ.get('GEMINI_MODEL', 'gemini-2.0-flash')}:generateContent?key={key}", data=body, headers={"Content-Type": "application/json"}, method="POST")
+    model = os.environ.get("GEMINI_MODEL", "gemini-3.7-flash")
+    request = Request(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent", data=body, headers={"Content-Type": "application/json", "x-goog-api-key": key}, method="POST")
     with urlopen(request, timeout=45) as response:
         data = json.load(response)
     puzzle = json.loads(data["candidates"][0]["content"]["parts"][0]["text"])
