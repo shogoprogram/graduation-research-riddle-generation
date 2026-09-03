@@ -296,5 +296,6 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     print("① システムを起動しています...", flush=True)
-    print("http://localhost:8000 で起動しました")
+    print("http://localhost:8000 で起動しました！")
     ThreadingHTTPServer(("localhost", 8000), Handler).serve_forever()
+
