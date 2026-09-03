@@ -141,29 +141,35 @@ def judge(source, answer):
     return {"score": score, "distance": distance, "result": "採用" if score >= 50 else "除外"}
 
 
-def fallback(pairs):
+def fallback(pairs, constraints=None):
     groups = {}
     for pair in pairs:
         groups.setdefault(pair.get("rule_group", pair["rule"]), []).append(pair)
-    group = random.choice([items for items in groups.values() if len(items) >= 3])
-    main = random.choice(group)
+    available = [items for items in groups.values() if len(items) >= 3]
+    if constraints:
+        available = [items for items in available if any((not constraints.get("source") or p["source"] == constraints["source"]) and (not constraints.get("answer") or p["answer"] == constraints["answer"]) for p in items)]
+    if not available:
+        raise ValueError("入力条件と同じ規則で成立する単語ペアが見つかりません")
+    group = random.choice(available)
+    candidates = [p for p in group if not constraints or ((not constraints.get("source") or p["source"] == constraints["source"]) and (not constraints.get("answer") or p["answer"] == constraints["answer"]))]
+    main = random.choice(candidates or group)
     examples = random.sample([p for p in group if p["source"] != main["source"]], 2)
     return {"title": "生成された謎", "problem": [f"{p['source']} → {p['answer']}" for p in examples] + [f"{main['source']} → ？"], "answer": main["answer"], "rule": main["rule"], "hints": ["矢印の前後で、文字の位置・数・音の変化を比べてみよう。", f"元の単語は{len(main['source'])}文字、答えは{len(main['answer'])}文字です。", f"例題の「{examples[0]['source']}」にも同じ規則が使われています。"], "explanation": f"「{main['source']}」に「{main['rule']}」を適用すると「{main['answer']}」になります。", "judgement": judge(main["source"], main["answer"])}
 
 
-def ai_generate(pairs, theme=""):
+def ai_generate(pairs, theme="", constraints=None):
     print("⑤ AIに問題・ヒント・解説の生成を依頼しています...", flush=True)
     key = API_KEY
     if not key:
         print("⑤ APIキーがないため、自動生成に切り替えます。", flush=True)
-        return [fallback(pairs)], False
+        return [fallback(pairs, constraints)], False
     groups = {}
     for pair in pairs:
         groups.setdefault(pair.get("rule_group", pair["rule"]), []).append(pair)
     groups = {rule: items[:40] for rule, items in groups.items() if len(items) >= 3}
     if not groups:
-        return [fallback(pairs)], False
-    prompt = {"pairs_by_rule_group": groups, "theme": theme or "指定なし", "request": "必ず1つのrule_groupだけを選んでください。rule_groupが同じペアは、位置だけでなく追加する文字も同じです。problemは空配列で返してください。ヒントは①文字数、②位置、③規則の順にしてください。JSONのみで返してください。", "format": {"title": "空文字列", "rule_group": "文字列", "answer_source": "文字列", "problem": [], "hints": ["文字数のヒント", "位置のヒント", "規則のヒント"], "answer": "文字列", "explanation": "文字列"}}
+        return [fallback(pairs, constraints)], False
+    prompt = {"pairs_by_rule_group": groups, "constraints": constraints or {}, "theme": theme or "指定なし", "request": "constraintsを最優先してください。sourceが指定されたらその単語を3行目の元単語にし、answerが指定されたらその単語を3行目の答えにしてください。ruleが指定された場合はその規則だけを使ってください。themeが指定された場合は意味がテーマに近い単語ペアを優先してください。必ず1つのrule_groupだけを選んでください。rule_groupが同じペアは、位置と変化要素が一致しています。problemは空配列で返してください。ヒントは①文字数、②位置、③規則の順にしてください。JSONのみで返してください。", "format": {"title": "空文字列", "rule_group": "文字列", "answer_source": "文字列", "problem": [], "hints": ["文字数のヒント", "位置のヒント", "規則のヒント"], "answer": "文字列", "explanation": "文字列"}}
     body = json.dumps({"contents": [{"parts": [{"text": json.dumps(prompt, ensure_ascii=False)}]}], "generationConfig": {"responseMimeType": "application/json"}}).encode()
     model = os.environ.get("GEMINI_MODEL", "gemini-3.7-flash")
     request = Request(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent", data=body, headers={"Content-Type": "application/json", "x-goog-api-key": key}, method="POST")
@@ -171,7 +177,7 @@ def ai_generate(pairs, theme=""):
         data = json.load(response)
     puzzle = json.loads(data["candidates"][0]["content"]["parts"][0]["text"])
     selected_group = puzzle.get("rule_group", "")
-    selected = next((p for p in groups.get(selected_group, []) if p["source"] == puzzle.get("answer_source") and p["answer"] == puzzle.get("answer")), None)
+    selected = next((p for p in groups.get(selected_group, []) if p["source"] == puzzle.get("answer_source") and p["answer"] == puzzle.get("answer") and (not constraints or not constraints.get("source") or p["source"] == constraints["source"]) and (not constraints or not constraints.get("answer") or p["answer"] == constraints["answer"])), None)
     if selected is None or len(puzzle.get("hints", [])) != 3:
         raise ValueError("AIの返却内容を検証できませんでした")
     example_pool = [pair for pair in groups[selected_group] if pair["source"] != selected["source"]]
@@ -235,18 +241,18 @@ class Handler(BaseHTTPRequestHandler):
             source = str(payload.get("source", "")).strip()
             answer = str(payload.get("answer", "")).strip()
             requested_rule = str(payload.get("rule", "")).strip()
-            anchor = [pair for pair in pairs if (not source or pair["source"] == source) and (not answer or pair["answer"] == answer)]
+            constraints = {"source": source, "answer": answer, "rule": requested_rule if requested_rule != "自動" else "", "theme": str(payload.get("theme", "")).strip()}
+            anchor = [pair for pair in pairs if (not source or pair["source"] == source) and (not answer or pair["answer"] == answer) and (not constraints["rule"] or pair["rule"] == constraints["rule"])]
             if source or answer:
                 if not anchor:
                     raise ValueError("指定された単語で成立するペアが見つかりません")
-                requested_rule = requested_rule or anchor[0]["rule"]
             if requested_rule and requested_rule != "自動":
                 pairs = [pair for pair in pairs if pair["rule"] == requested_rule]
             print(f"③ 規則を全種類適用しました: {len(pairs)}組", flush=True)
             if len(pairs) < 3:
                 raise ValueError("成立する単語ペアが3組未満です")
             print("④ 成立する単語ペアを確認しました。", flush=True)
-            puzzles, used = ai_generate(pairs, str(payload.get("theme", "")).strip())
+            puzzles, used = ai_generate(pairs, constraints.get("theme", ""), constraints)
             print("⑥ 判定結果を計算しました。", flush=True)
             self.send_json(200, {"puzzle": puzzles[0], "puzzles": puzzles, "wordCount": len(words), "pairCount": len(pairs), "aiUsed": used})
         except Exception as error:
