@@ -90,7 +90,13 @@ def search_pairs(dictionary):
 
 
 def rule_group(source, answer, name):
-    """追加・置換では、位置だけでなく変化する文字も同じグループにする。"""
+    """問題として同じ規則と呼べる位置・変化要素まで含めたグループを返す。"""
+    if name in {"先頭1文字削除", "末尾1文字削除"}:
+        return name
+    if name == "中間1文字削除":
+        for index in range(1, len(source) - 1):
+            if source[:index] + source[index + 1:] == answer:
+                return f"{name}:{index}"
     if name == "先頭1文字追加":
         return f"{name}:{answer[0]}"
     if name == "末尾1文字追加":
@@ -99,6 +105,22 @@ def rule_group(source, answer, name):
         for index in range(1, len(source)):
             if answer[:index] == source[:index] and answer[index + 1:] == source[index:]:
                 return f"{name}:{index}:{answer[index]}"
+    if name == "先頭文字置換":
+        return f"{name}:{source[0]}→{answer[0]}"
+    if name == "末尾文字置換":
+        return f"{name}:{source[-1]}→{answer[-1]}"
+    if name == "中間文字置換":
+        for index in range(1, len(source) - 1):
+            if source[:index] == answer[:index] and source[index + 1:] == answer[index + 1:]:
+                return f"{name}:{index}:{source[index]}→{answer[index]}"
+    if name in {"母音変換", "子音スライド"}:
+        for index, (before, after) in enumerate(zip(source, answer)):
+            if before != after:
+                return f"{name}:{index}:{before}→{after}"
+    if name in {"濁点・清音変換", "半濁点変換"}:
+        for index, (before, after) in enumerate(zip(source, answer)):
+            if before != after:
+                return f"{name}:{index}"
     return name
 
 
@@ -134,13 +156,13 @@ def ai_generate(pairs, theme=""):
     key = API_KEY
     if not key:
         print("⑤ APIキーがないため、自動生成に切り替えます。", flush=True)
-        return fallback(pairs), False
+        return [fallback(pairs)], False
     groups = {}
     for pair in pairs:
         groups.setdefault(pair.get("rule_group", pair["rule"]), []).append(pair)
     groups = {rule: items[:40] for rule, items in groups.items() if len(items) >= 3}
     if not groups:
-        return fallback(pairs), False
+        return [fallback(pairs)], False
     prompt = {"pairs_by_rule_group": groups, "theme": theme or "指定なし", "request": "必ず1つのrule_groupだけを選んでください。rule_groupが同じペアは、位置だけでなく追加する文字も同じです。problemは空配列で返してください。ヒントは①文字数、②位置、③規則の順にしてください。JSONのみで返してください。", "format": {"title": "空文字列", "rule_group": "文字列", "answer_source": "文字列", "problem": [], "hints": ["文字数のヒント", "位置のヒント", "規則のヒント"], "answer": "文字列", "explanation": "文字列"}}
     body = json.dumps({"contents": [{"parts": [{"text": json.dumps(prompt, ensure_ascii=False)}]}], "generationConfig": {"responseMimeType": "application/json"}}).encode()
     model = os.environ.get("GEMINI_MODEL", "gemini-3.7-flash")
@@ -160,8 +182,16 @@ def ai_generate(pairs, theme=""):
     puzzle["problem"] = [f"{pair['source']} → {pair['answer']}" for pair in examples] + [f"{selected['source']} → ？"]
     puzzle["judgement"] = judge(selected["source"], selected["answer"])
     puzzle["rule"] = selected["rule"]
+    puzzle_list = [puzzle]
+    remaining = [pair for pair in groups[selected_group] if pair["source"] not in {selected["source"], examples[0]["source"], examples[1]["source"]}]
+    for main in remaining[:4]:
+        other = [pair for pair in groups[selected_group] if pair["source"] != main["source"]]
+        if len(other) < 2:
+            break
+        sample_examples = random.sample(other, 2)
+        puzzle_list.append({"title": "", "problem": [f"{pair['source']} → {pair['answer']}" for pair in sample_examples] + [f"{main['source']} → ？"], "answer": main["answer"], "rule": main["rule"], "hints": puzzle["hints"], "explanation": f"「{main['source']}」に「{main['rule']}」を適用すると「{main['answer']}」になります。", "judgement": judge(main["source"], main["answer"])})
     print("⑤ AI生成が完了しました。", flush=True)
-    return puzzle, True
+    return puzzle_list, True
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -216,9 +246,9 @@ class Handler(BaseHTTPRequestHandler):
             if len(pairs) < 3:
                 raise ValueError("成立する単語ペアが3組未満です")
             print("④ 成立する単語ペアを確認しました。", flush=True)
-            puzzle, used = ai_generate(pairs, str(payload.get("theme", "")).strip())
+            puzzles, used = ai_generate(pairs, str(payload.get("theme", "")).strip())
             print("⑥ 判定結果を計算しました。", flush=True)
-            self.send_json(200, {"puzzle": puzzle, "wordCount": len(words), "pairCount": len(pairs), "aiUsed": used})
+            self.send_json(200, {"puzzle": puzzles[0], "puzzles": puzzles, "wordCount": len(words), "pairCount": len(pairs), "aiUsed": used})
         except Exception as error:
             self.send_json(400, {"error": str(error)})
 
