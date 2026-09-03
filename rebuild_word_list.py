@@ -41,9 +41,12 @@ def build_words():
             if len(row) < 6:
                 continue
             source_word = row[0]
-            # 古い辞書表記のうち、現代でも使う外来語だけを現代表記へ直す。
-            # 発音欄を一律採用すると、通常語（あずき・さくら等）の順位や表記まで壊れる。
+            pronunciation = katakana_to_hiragana(row[13]) if len(row) > 13 else source_word
+            # 表記と発音が食い違う古い表記は原則除外する。
+            # ただし、現代でも普通に使う外来語だけは明示的に現代表記へ直す。
             word = MODERN_SPELLINGS.get(source_word, source_word)
+            if source_word != pronunciation and source_word not in MODERN_SPELLINGS:
+                continue
             if any(char in source_word for char in "ぁぃぅぇぉ"):
                 continue
             if source_word in EXCLUDED or not re.fullmatch(r"[ぁ-んー]{2,4}", word):
