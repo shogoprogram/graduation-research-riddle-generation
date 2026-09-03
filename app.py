@@ -81,11 +81,25 @@ def search_pairs(dictionary):
     for word in sorted(dictionary):
         for name, transform in rules():
             for answer in transform(word):
-                key = (word, answer, name)
+                group = rule_group(word, answer, name)
+                key = (word, answer, group)
                 if answer in dictionary and answer != word and key not in seen:
                     seen.add(key)
-                    found.append({"source": word, "answer": answer, "rule": name})
+                    found.append({"source": word, "answer": answer, "rule": name, "rule_group": group})
     return found
+
+
+def rule_group(source, answer, name):
+    """追加・置換では、位置だけでなく変化する文字も同じグループにする。"""
+    if name == "先頭1文字追加":
+        return f"{name}:{answer[0]}"
+    if name == "末尾1文字追加":
+        return f"{name}:{answer[-1]}"
+    if name == "中間1文字追加":
+        for index in range(1, len(source)):
+            if answer[:index] == source[:index] and answer[index + 1:] == source[index:]:
+                return f"{name}:{index}:{answer[index]}"
+    return name
 
 
 def edit_distance(a, b):
@@ -108,7 +122,7 @@ def judge(source, answer):
 def fallback(pairs):
     groups = {}
     for pair in pairs:
-        groups.setdefault(pair["rule"], []).append(pair)
+        groups.setdefault(pair.get("rule_group", pair["rule"]), []).append(pair)
     group = random.choice([items for items in groups.values() if len(items) >= 3])
     main = random.choice(group)
     examples = random.sample([p for p in group if p["source"] != main["source"]], 2)
@@ -123,20 +137,27 @@ def ai_generate(pairs, theme=""):
         return fallback(pairs), False
     groups = {}
     for pair in pairs:
-        groups.setdefault(pair["rule"], []).append(pair)
+        groups.setdefault(pair.get("rule_group", pair["rule"]), []).append(pair)
     groups = {rule: items[:40] for rule, items in groups.items() if len(items) >= 3}
     if not groups:
         return fallback(pairs), False
-    prompt = {"pairs_by_rule": groups, "theme": theme or "指定なし", "request": "必ず1つのruleだけを選び、そのruleのペアを3つ使ってください。例題2つと問題1つを作成し、ヒントは①文字数、②位置、③変化している規則の順にしてください。テーマがあれば問題文や表現に取り入れてください。JSONのみで返してください。", "format": {"title": "文字列", "rule": "文字列", "answer_source": "文字列", "problem": ["文字列", "文字列", "文字列"], "hints": ["文字数のヒント", "位置のヒント", "規則のヒント"], "answer": "文字列", "explanation": "文字列"}}
+    prompt = {"pairs_by_rule_group": groups, "theme": theme or "指定なし", "request": "必ず1つのrule_groupだけを選んでください。rule_groupが同じペアは、位置だけでなく追加する文字も同じです。problemは空配列で返してください。ヒントは①文字数、②位置、③規則の順にしてください。JSONのみで返してください。", "format": {"title": "空文字列", "rule_group": "文字列", "answer_source": "文字列", "problem": [], "hints": ["文字数のヒント", "位置のヒント", "規則のヒント"], "answer": "文字列", "explanation": "文字列"}}
     body = json.dumps({"contents": [{"parts": [{"text": json.dumps(prompt, ensure_ascii=False)}]}], "generationConfig": {"responseMimeType": "application/json"}}).encode()
     model = os.environ.get("GEMINI_MODEL", "gemini-3.7-flash")
     request = Request(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent", data=body, headers={"Content-Type": "application/json", "x-goog-api-key": key}, method="POST")
     with urlopen(request, timeout=45) as response:
         data = json.load(response)
     puzzle = json.loads(data["candidates"][0]["content"]["parts"][0]["text"])
-    selected = next((p for p in groups.get(puzzle.get("rule"), []) if p["source"] == puzzle.get("answer_source") and p["answer"] == puzzle.get("answer")), None)
-    if selected is None or len(puzzle.get("problem", [])) != 3 or len(puzzle.get("hints", [])) != 3:
+    selected_group = puzzle.get("rule_group", "")
+    selected = next((p for p in groups.get(selected_group, []) if p["source"] == puzzle.get("answer_source") and p["answer"] == puzzle.get("answer")), None)
+    if selected is None or len(puzzle.get("hints", [])) != 3:
         raise ValueError("AIの返却内容を検証できませんでした")
+    example_pool = [pair for pair in groups[selected_group] if pair["source"] != selected["source"]]
+    if len(example_pool) < 2:
+        raise ValueError("同じ規則の例題が不足しています")
+    examples = random.sample(example_pool, 2)
+    puzzle["title"] = ""
+    puzzle["problem"] = [f"{pair['source']} → {pair['answer']}" for pair in examples] + [f"{selected['source']} → ？"]
     puzzle["judgement"] = judge(selected["source"], selected["answer"])
     puzzle["rule"] = selected["rule"]
     print("⑤ AI生成が完了しました。", flush=True)
