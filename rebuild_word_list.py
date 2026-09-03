@@ -20,18 +20,12 @@ EXCLUDED = {
     "あへん", "まやく", "たいま", "しゃぶ", "へろいん", "ここいん", "じさつ", "しね",
     "しぬ", "ころし", "ころす", "さつじん", "やくざ",
     # UniDicでは品詞が付くが、単独の謎解き用単語として不自然な語・語の断片。
-    "ちゅ", "もったい", "そぅ", "そおお",
+    "ちゅ", "もったい", "そぅ", "そおお", "かっかっ",
 }
 
 
 def katakana_to_hiragana(text):
     return "".join(chr(ord(char) - 0x60) if "ァ" <= char <= "ヶ" else char for char in text)
-
-
-MODERN_SPELLINGS = {
-    "すぽおつ": "すぽーつ",
-    "げえむ": "げーむ",
-}
 
 
 def build_words():
@@ -42,21 +36,14 @@ def build_words():
             if len(row) < 6:
                 continue
             source_word = row[0]
-            pronunciation = katakana_to_hiragana(row[13]) if len(row) > 13 else source_word
-            # 表記と発音が食い違う古い表記は原則除外する。
-            # ただし、現代でも普通に使う外来語だけは明示的に現代表記へ直す。
-            word = MODERN_SPELLINGS.get(source_word, source_word)
-            if source_word != pronunciation and source_word not in MODERN_SPELLINGS:
-                if row[4] == "名詞" and row[5] == "普通名詞":
-                    # どろぼう→ドロボーのような、普通名詞の自然な長音表記差は原表記を残す。
-                    if re.fullmatch(r"[ぁ-んー]{2,4}", source_word):
-                        word = source_word
-                    else:
-                        fallback_word = pronunciation
-                        if re.fullmatch(r"[ぁ-んー]{2,4}", fallback_word) and fallback_word not in EXCLUDED:
-                            fallback_cost[fallback_word] = min(int(row[3]), fallback_cost.get(fallback_word, 10**18))
-                else:
-                    continue
+            if source_word in EXCLUDED:
+                continue
+            # 読み（とーてー）ではなく、UniDicの語彙見出し（トウテイ）を使う。
+            # 和語はひらがな、外来語は一般的なカタカナ表記にする。
+            lexical_form = row[10] if len(row) > 10 else source_word
+            word = lexical_form if (len(row) > 16 and row[16] == "外") else katakana_to_hiragana(lexical_form)
+            if not re.fullmatch(r"[ぁ-んァ-ヶー]{2,4}", word):
+                continue
             if any(char in source_word for char in "ぁぃぅぇぉ"):
                 continue
             if source_word in EXCLUDED or not re.fullmatch(r"[ぁ-んー]{2,4}", word):
