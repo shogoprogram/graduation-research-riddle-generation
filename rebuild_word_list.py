@@ -48,10 +48,15 @@ def build_words():
             word = MODERN_SPELLINGS.get(source_word, source_word)
             if source_word != pronunciation and source_word not in MODERN_SPELLINGS:
                 if row[4] == "名詞" and row[5] == "普通名詞":
-                    fallback_word = pronunciation
-                    if re.fullmatch(r"[ぁ-んー]{2,4}", fallback_word) and fallback_word not in EXCLUDED:
-                        fallback_cost[fallback_word] = min(int(row[3]), fallback_cost.get(fallback_word, 10**18))
-                continue
+                    # どろぼう→ドロボーのような、普通名詞の自然な長音表記差は原表記を残す。
+                    if re.fullmatch(r"[ぁ-んー]{2,4}", source_word):
+                        word = source_word
+                    else:
+                        fallback_word = pronunciation
+                        if re.fullmatch(r"[ぁ-んー]{2,4}", fallback_word) and fallback_word not in EXCLUDED:
+                            fallback_cost[fallback_word] = min(int(row[3]), fallback_cost.get(fallback_word, 10**18))
+                else:
+                    continue
             if any(char in source_word for char in "ぁぃぅぇぉ"):
                 continue
             if source_word in EXCLUDED or not re.fullmatch(r"[ぁ-んー]{2,4}", word):
