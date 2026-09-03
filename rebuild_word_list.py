@@ -46,7 +46,7 @@ def build_words():
                 continue
             if any(char in source_word for char in "ぁぃぅぇぉ"):
                 continue
-            if source_word in EXCLUDED or not re.fullmatch(r"[ぁ-んー]{2,4}", word):
+            if source_word in EXCLUDED or not re.fullmatch(r"[ぁ-んァ-ヶー]{2,4}", word):
                 continue
             # 普通名詞・副詞に限定し、固有名詞・人名・古い片仮名表記を除外。
             if not (row[4] == "副詞" or (row[4] == "名詞" and row[5] == "普通名詞")):
