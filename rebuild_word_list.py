@@ -29,8 +29,7 @@ def katakana_to_hiragana(text):
 
 
 def build_words():
-    best_cost = {}
-    fallback_cost = {}
+    source_best = {}
     with SOURCE.open(encoding="utf-8-sig", newline="") as stream:
         for row in csv.reader(stream):
             if len(row) < 6:
@@ -57,16 +56,20 @@ def build_words():
             if word in EXCLUDED:
                 continue
             cost = int(row[3])
-            if cost < best_cost.get(word, 10**18):
-                best_cost[word] = cost
-    primary = sorted(best_cost, key=lambda word: (best_cost[word], word))
-    fallback = sorted(fallback_cost, key=lambda word: (fallback_cost[word], word))
-    for word in fallback:
-        if len(primary) >= LIMIT:
+            if cost < source_best.get(source_word, (10**18, "")[0]):
+                source_best[source_word] = (cost, word)
+    # 頻度順位は元の候補語で決め、標準表記への変換後に重複だけを除く。
+    words = []
+    seen = set()
+    for source_word in sorted(source_best, key=lambda source: (source_best[source][0], source)):
+        word = source_best[source_word][1]
+        if word in seen:
+            continue
+        seen.add(word)
+        words.append(word)
+        if len(words) == LIMIT:
             break
-        if word not in best_cost:
-            primary.append(word)
-    return primary[:LIMIT]
+    return words
 
 
 def main():
