@@ -36,6 +36,7 @@ MODERN_SPELLINGS = {
 
 def build_words():
     best_cost = {}
+    fallback_cost = {}
     with SOURCE.open(encoding="utf-8-sig", newline="") as stream:
         for row in csv.reader(stream):
             if len(row) < 6:
@@ -46,6 +47,10 @@ def build_words():
             # ただし、現代でも普通に使う外来語だけは明示的に現代表記へ直す。
             word = MODERN_SPELLINGS.get(source_word, source_word)
             if source_word != pronunciation and source_word not in MODERN_SPELLINGS:
+                if row[4] == "名詞" and row[5] == "普通名詞":
+                    fallback_word = pronunciation
+                    if re.fullmatch(r"[ぁ-んー]{2,4}", fallback_word) and fallback_word not in EXCLUDED:
+                        fallback_cost[fallback_word] = min(int(row[3]), fallback_cost.get(fallback_word, 10**18))
                 continue
             if any(char in source_word for char in "ぁぃぅぇぉ"):
                 continue
@@ -59,7 +64,14 @@ def build_words():
             cost = int(row[3])
             if cost < best_cost.get(word, 10**18):
                 best_cost[word] = cost
-    return sorted(best_cost, key=lambda word: (best_cost[word], word))[:LIMIT]
+    primary = sorted(best_cost, key=lambda word: (best_cost[word], word))
+    fallback = sorted(fallback_cost, key=lambda word: (fallback_cost[word], word))
+    for word in fallback:
+        if len(primary) >= LIMIT:
+            break
+        if word not in best_cost:
+            primary.append(word)
+    return primary[:LIMIT]
 
 
 def main():
