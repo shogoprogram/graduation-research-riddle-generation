@@ -20,7 +20,17 @@ EXCLUDED = {
     "あへん", "まやく", "たいま", "しゃぶ", "へろいん", "ここいん", "じさつ", "しね",
     "しぬ", "ころし", "ころす", "さつじん", "やくざ",
     # UniDicでは品詞が付くが、単独の謎解き用単語として不自然な語・語の断片。
-    "ちゅ", "もったい",
+    "ちゅ", "もったい", "そぅ", "そおお",
+}
+
+
+def katakana_to_hiragana(text):
+    return "".join(chr(ord(char) - 0x60) if "ァ" <= char <= "ヶ" else char for char in text)
+
+
+MODERN_SPELLINGS = {
+    "すぽおつ": "すぽーつ",
+    "げえむ": "げーむ",
 }
 
 
@@ -30,8 +40,13 @@ def build_words():
         for row in csv.reader(stream):
             if len(row) < 6:
                 continue
-            word = row[0]
-            if not re.fullmatch(r"[ぁ-ん]{2,4}", word):
+            source_word = row[0]
+            # 古い辞書表記のうち、現代でも使う外来語だけを現代表記へ直す。
+            # 発音欄を一律採用すると、通常語（あずき・さくら等）の順位や表記まで壊れる。
+            word = MODERN_SPELLINGS.get(source_word, source_word)
+            if any(char in source_word for char in "ぁぃぅぇぉ"):
+                continue
+            if source_word in EXCLUDED or not re.fullmatch(r"[ぁ-んー]{2,4}", word):
                 continue
             # 普通名詞・副詞に限定し、固有名詞・人名・古い片仮名表記を除外。
             if not (row[4] == "副詞" or (row[4] == "名詞" and row[5] == "普通名詞")):
