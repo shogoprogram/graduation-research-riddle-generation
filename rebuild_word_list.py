@@ -56,7 +56,7 @@ def build_words():
             if word in EXCLUDED:
                 continue
             cost = int(row[3])
-            if cost < source_best.get(source_word, (10**18, "")[0]):
+            if cost < source_best.get(source_word, (10**18, ""))[0]:
                 source_best[source_word] = (cost, word)
     # 頻度順位は元の候補語で決め、標準表記への変換後に重複だけを除く。
     words = []
